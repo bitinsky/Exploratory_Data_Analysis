@@ -54,7 +54,7 @@ SCC <- readRDS("./data/Source_Classification_Code.rds")
 ```
 
 ### Data Examination
-```{f str, echo = TRUE}
+```{r structure}
 str(NEI)
 str(SCC)
 ```
