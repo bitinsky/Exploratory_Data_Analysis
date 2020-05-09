@@ -63,7 +63,7 @@ It can be confirmed that NEI contains the emissions data, while SCC provides det
 
 ### Questions:
 
-#### Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008?
+#### Q1: Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008?
 ```{r Q1}
 plot(NEI %>% group_by(year) %>% summarize(sum(Emissions)/1000),
           type = "b", 
@@ -75,7 +75,9 @@ plot(NEI %>% group_by(year) %>% summarize(sum(Emissions)/1000),
 
 You can see that the total PM2.5 American emissions have decreased from 1999 to 2008.
 
-#### Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (\color{red}{\verb|fips == "24510"|}fips == "24510") from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+
+
+#### Q2: Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (\color{red}{\verb|fips == "24510"|}fips == "24510") from 1999 to 2008? Use the base plotting system to make a plot answering this question.
 ```{r Q2}
 plot(NEI %>% 
        filter(fips == 24510) %>% 
@@ -90,7 +92,9 @@ plot(NEI %>%
 
 You can see that the PM2.5 emissions from Baltimore Maryland have decreased when comparing 1999 to 2008, although it may be noted that they did go up at some point during that time.
 
-#### Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999–2008 for Baltimore City? Which have seen increases in emissions from 1999–2008? Use the ggplot2 plotting system to make a plot answer this question.
+
+
+#### Q3: Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999–2008 for Baltimore City? Which have seen increases in emissions from 1999–2008? Use the ggplot2 plotting system to make a plot answer this question.
 ```{r Q3}
 NEI %>% 
   filter(fips == 24510) %>% 
@@ -100,19 +104,84 @@ NEI %>%
          geom_point() +
          geom_line() +
          facet_grid(. ~ type) +
-         ggtitle("Baltimore PM2.5 Emissions", subtitle = "By Type and Year") + 
-         ylab("PM2.5 Emissions") + 
+         ggtitle("Baltimore PM29.5 Emissions", subtitle = "By Type and Year") + 
+         ylab("PM2.5 Emissions (tons)") + 
          xlab("Year")
 ```
 
 All type of emissions except for point-type in Baltimore decreased from 1999 to 2008. 
 
-#### Across the United States, how have emissions from coal combustion-related sources changed from 1999–2008?
+#### Q4: Across the United States, how have emissions from coal combustion-related sources changed from 1999–2008?
+Examine the factor variables in SCC for coal-combustion, also explore the free text fields for clues as to what might be relevant. Note that I'm only displaying the top ten results for each exploration, to provide context.
+```{r Q4_analysis}
+head(unique(SCC$Data.Category), n=10)
+head(unique(SCC$EI.Sector), n=10)
+head(unique(SCC$Option.Group), n=10)
+head(SCC %>% filter(grepl("coal",Short.Name, ignore.case = TRUE)) %>% select(Short.Name), n=10)
+```
+Assume that the _EI.Sector_ provides the closest match to what we're looking for.
+Select all SCC where there is fuel combustion from coal.
 ```{r Q4}
+sources <- SCC %>% 
+  filter(grepl("coal", EI.Sector, ignore.case = TRUE)) %>% 
+  select(SCC, EI.Sector)
+
+NEI %>% 
+  filter(SCC %in% sources$SCC) %>% 
+  group_by(year, type) %>% 
+  summarize(Emissions = sum(Emissions)/1000) %>%
+  ggplot(aes(year, Emissions, col = type)) +
+  geom_point() +
+  geom_line() +
+  ggtitle("USA PM2.5 Emissions by Year", subtitle = "From Coal-Combustion Sources") + 
+  ylab("PM2.5 Emissions (kiloton)") + 
+  xlab("Year")
 ```
-#### How have emissions from motor vehicle sources changed from 1999–2008 in Baltimore City?
+For coal-combustion emissions the point-type have dropped from 1999 to 2008. Nonpoint-type emissions have remained overall flat across that same timeframe, however, they have been almost zero. 
+
+
+
+#### Q5: How have emissions from motor vehicle sources changed from 1999–2008 in Baltimore City?
+I'm unsure whether we can assume that "on-road" means vehicles. So, follow the same process as in the last question and search/ filter the SCC variable by a Short.Name that contains "vehicle." 
 ```{r Q5}
+sources <- SCC %>% 
+  filter(grepl("vehicle", EI.Sector, ignore.case = TRUE)) %>% 
+  select(SCC, EI.Sector)
+
+head(sources, n = 10)
+
+NEI %>% 
+  filter(SCC %in% sources$SCC, fips == 24510) %>% 
+  group_by(year, type) %>% 
+  summarize(Emissions = sum(Emissions)) %>%
+  ggplot(aes(year, Emissions, col = type)) +
+  geom_point() +
+  geom_line() +
+  ggtitle("Baltimore PM2.5 Emissions by Year", subtitle = "From Vehicular Sources") + 
+  ylab("PM2.5 Emissions (ton)") + 
+  xlab("Year")
 ```
-#### Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (\color{red}{\verb|fips == "06037"|}fips == "06037"). Which city has seen greater changes over time in motor vehicle emissions?
+
+Emissions from motor vehicle sources have dropped from 1999 to 2008. It also appears that "on-road" is the only type that matters for this source.
+
+
+#### Q6: Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (fips == "06037"). Which city has seen greater changes over time in motor vehicle emissions?
+What we learned in the previous question is that the on-road type is the factor that we could look at for vehicular sources.
+
 ```{r Q6}
+NEI %>% 
+  filter(fips %in% c("24510","06037"), type == "ON-ROAD") %>% 
+  group_by(year, fips) %>% 
+  summarize(Emissions = sum(Emissions)) %>%
+  mutate(City = ifelse(fips == "06037","Los Angeles",
+                       ifelse(fips == "24510", "Baltimore", "error"))) %>%
+  ggplot(aes(year, Emissions, col = City)) +
+  geom_point(aes(shape = City), size = 3) +
+  geom_line() +
+  ggtitle("Emissions From Motor Vehicle Sources by Year", 
+          subtitle = "Comparing Baltimore to Los Angeles") + 
+  ylab("PM2.5 Emissions (ton)") + 
+  xlab("Year")
 ```
+
+It can be seen that Los Angeles has much higher emissions from vehicles and has seen greater changes over time.
