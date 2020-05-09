@@ -1,0 +1,118 @@
+---
+title: "Exploration of the National Emissions Inventory"
+author: "Kevin Bitinsky"
+date: "09/05/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+## Introduction
+
+The purpose of this project is to explore data within the National Emissions Inventory of the United States Environmental Protection Agency. This is an assignment for the Coursera Johns Hopkins Data Exploratory Data Analysis course. 
+
+## Background
+
+Fine particulate matter (PM2.5) is an ambient air pollutant for which there is strong evidence that it is harmful to human health. In the United States, the Environmental Protection Agency (EPA) is tasked with setting national ambient air quality standards for fine PM and for tracking the emissions of this pollutant into the atmosphere. Approximatly every 3 years, the EPA releases its database on emissions of PM2.5. This database is known as the National Emissions Inventory (NEI). You can read more information about the NEI at the EPA National Emissions Inventory web site.
+
+For each year and for each type of PM source, the NEI records how many tons of PM2.5 were emitted from that source over the course of the entire year. The data that you will use for this assignment are for 1999, 2002, 2005, and 2008.
+
+## Data
+The data for this assignment are available from the course web site as a single zip file, [Data for Peer Assessment](https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2FNEI_data.zip)
+The zip file contains two files:
+
+*  <span style="color: red;">textsummarySCC_PM25.rds</span> contains a data frame with all of the PM2.5 emissions data for 1999, 2002, 2005, and 2008. For each year, the table contains number of tons of PM2.5 emitted from a specific type of source for the entire year. The columns are as follows:
+   + <span style="color: blue;">fips</span>: A five-digit number (represented as a string) indicating the U.S. county
+   + <span style="color: blue;">SCC</span>: The name of the source as indicated by a digit string (see source code classification table)
+   + <span style="color: blue;">Pollutant</span>: A string indicating the pollutant
+   + <span style="color: blue;">Emissions</span>: Amount of PM2.5 emitted, in tons
+   + <span style="color: blue;">type</span>: The type of source (point, non-point, on-road, or non-road)
+   + <span style="color: blue;">year</span>: The year of emissions recorded
+* <span style="color: red;">Source_Classification_Code.rds</span> is a table that provides a mapping from the SCC digit strings in the Emissions table to the actual name of the PM2.5 source. The sources are categorized in a few different ways from more general to more specific and you may choose to explore whatever categories you think are most useful. For example, source “10100101” is known as “Ext Comb /Electric Gen /Anthracite Coal /Pulverized Coal”.
+
+## Analysis
+
+### Data Retrieval
+```{r get, warning=FALSE}
+ifelse(!dir.exists(file.path("data")), dir.create(file.path("data")), "Directory already exists")
+
+url <- "https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2FNEI_data.zip"
+destfile <- "./data/Dataset.zip" 
+
+if (!file.exists(destfile)) {
+  download.file(url ,destfile,method="auto") 
+  unzip(destfile,exdir="./data")
+}
+
+## This first line will likely take a few seconds. Be patient!
+NEI <- readRDS("./data/summarySCC_PM25.rds")
+SCC <- readRDS("./data/Source_Classification_Code.rds")
+```
+
+### Data Examination
+```{f str, echo = TRUE}
+str(NEI)
+str(SCC)
+```
+
+It can be confirmed that NEI contains the emissions data, while SCC provides detailed information on for each classification. So SCC may be used as a primary key to merge the two tables, if required.
+
+### Questions:
+
+#### Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008?
+```{r Q1}
+plot(NEI %>% group_by(year) %>% summarize(sum(Emissions)/1000),
+          type = "b", 
+          col = "red", 
+          main = ("Total USA PM2.5 Emissions by Year"), 
+          ylab = ("PM2.5 Emissions (kilotons)"), 
+          xlab = "Year")
+```
+
+You can see that the total PM2.5 American emissions have decreased from 1999 to 2008.
+
+#### Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (\color{red}{\verb|fips == "24510"|}fips == "24510") from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+```{r Q2}
+plot(NEI %>% 
+       filter(fips == 24510) %>% 
+       group_by(year) %>% 
+       summarize(sum(Emissions)/1000),
+     type = "b", 
+     col = "red", 
+     main = ("Baltimore PM2.5 Emissions by Year"), 
+     ylab = ("PM2.5 Emissions (kilotons)"), 
+     xlab = "Year")
+```
+
+You can see that the PM2.5 emissions from Baltimore Maryland have decreased when comparing 1999 to 2008, although it may be noted that they did go up at some point during that time.
+
+#### Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999–2008 for Baltimore City? Which have seen increases in emissions from 1999–2008? Use the ggplot2 plotting system to make a plot answer this question.
+```{r Q3}
+NEI %>% 
+  filter(fips == 24510) %>% 
+  group_by(year, type) %>% 
+  summarize(Emissions = sum(Emissions)) %>%
+  ggplot(aes(year, Emissions)) +
+         geom_point() +
+         geom_line() +
+         facet_grid(. ~ type) +
+         ggtitle("Baltimore PM2.5 Emissions", subtitle = "By Type and Year") + 
+         ylab("PM2.5 Emissions") + 
+         xlab("Year")
+```
+
+All type of emissions except for point-type in Baltimore decreased from 1999 to 2008. 
+
+#### Across the United States, how have emissions from coal combustion-related sources changed from 1999–2008?
+```{r Q4}
+```
+#### How have emissions from motor vehicle sources changed from 1999–2008 in Baltimore City?
+```{r Q5}
+```
+#### Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (\color{red}{\verb|fips == "06037"|}fips == "06037"). Which city has seen greater changes over time in motor vehicle emissions?
+```{r Q6}
+```
